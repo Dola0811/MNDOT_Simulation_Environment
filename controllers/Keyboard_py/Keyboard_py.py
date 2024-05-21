@@ -1,75 +1,78 @@
-from controller import Robot, Keyboard, DistanceSensor, GPS, InertialUnit, Motor
+from controller import Robot, Motor, DistanceSensor, Keyboard, GPS, InertialUnit, Accelerometer, Gyro
 
 TIME_STEP = 64
 
-# Initialize the Robot
-robot = Robot()
-kb = Keyboard()
-kb.enable(TIME_STEP)
+def main():
+    robot = Robot()
+    kb = Keyboard()
 
-# Initialize Distance Sensors
-ds_names = ["ds_right", "ds_left"]
-ds = [robot.getDevice(name) for name in ds_names]
-for sensor in ds:
-    sensor.enable(TIME_STEP)
+    ds_names = ["ds_right", "ds_left"]
+    ds = [robot.getDistanceSensor(name) for name in ds_names]
+    for sensor in ds:
+        sensor.enable(TIME_STEP)
 
-# Initialize GPS
-gp = robot.getDevice("global")
-gp.enable(TIME_STEP)
+    gp = robot.getGPS("global")
+    gp.enable(TIME_STEP)
 
-# Initialize Inertial Unit
-iu = robot.getDevice("imu")
-iu.enable(TIME_STEP)
+    iu = robot.getInertialUnit("imu")
+    iu.enable(TIME_STEP)
 
-# Initialize Motors
-wheel_names = ["wheel1", "wheel2", "wheel3", "wheel4"]
-wheels = [robot.getDevice(name) for name in wheel_names]
-for wheel in wheels:
-    wheel.setPosition(float('inf'))
-    wheel.setVelocity(0.0)
+    acc = robot.getAccelerometer("accelerometer")
+    acc.enable(TIME_STEP)
 
-# Main loop
-left_speed = 0.0
-right_speed = 0.0
+    gy = robot.getGyro("gyro")
+    gy.enable(TIME_STEP)
 
-while robot.step(TIME_STEP) != -1:
-    key = kb.getKey()
-    
-    if key == Keyboard.UP:
-        left_speed = 1.0
-        right_speed = 1.0
-    elif key == Keyboard.DOWN:
-        left_speed = -1.0
-        right_speed = -1.0
-    elif key == Keyboard.RIGHT:
-        left_speed = 1.0
-        right_speed = -1.0
-    elif key == Keyboard.LEFT:
-        left_speed = -1.0
-        right_speed = 1.0
-    else:
-        left_speed = 0.0
-        right_speed = 0.0
+    wheels_names = ["wheel1", "wheel2", "wheel3", "wheel4"]
+    wheels = [robot.getMotor(name) for name in wheels_names]
+    for wheel in wheels:
+        wheel.setPosition(float('inf'))
+        wheel.setVelocity(0.0)
 
-    # Set wheel velocities
-    for i in [0, 2]:  # left wheels
-        wheels[i].setVelocity(left_speed)
-    for i in [1, 3]:  # right wheels
-        wheels[i].setVelocity(right_speed)
+    kb.enable(TIME_STEP)
+    leftSpeed = 0.0
+    rightSpeed = 0.0
 
-    # Print sensor values
-    print(f"Right Sensor: {ds[0].getValue()}")
-    print(f"Left Sensor: {ds[1].getValue()}")
+    while robot.step(TIME_STEP) != -1:
+        key = kb.getKey()
 
-    # Print GPS values
-    gps_values = gp.getValues()
-    print(f"X : {gps_values[0]}")
-    print(f"Y : {gps_values[1]}")
-    print(f"Z : {gps_values[2]}")
+        if key == 315:  # Forward
+            leftSpeed = 1.0
+            rightSpeed = 1.0
+        elif key == 317:  # Backward
+            leftSpeed = -1.0
+            rightSpeed = -1.0
+        elif key == 316:  # Turn right
+            leftSpeed = 1.0
+            rightSpeed = -1.0
+        elif key == 314:  # Turn left
+            leftSpeed = -1.0
+            rightSpeed = 1.0
+        else:
+            leftSpeed = 0.0
+            rightSpeed = 0.0
 
-    # Print Inertial Unit values
-    imu_values = iu.getRollPitchYaw()
-    print(f"Angle X : {imu_values[0]}")
-    print(f"Angle Y : {imu_values[1]}")
-    print(f"Angle Z : {imu_values[2]}")
-    print("########################")
+        wheels[0].setVelocity(leftSpeed)
+        wheels[1].setVelocity(rightSpeed)
+        wheels[2].setVelocity(leftSpeed)
+        wheels[3].setVelocity(rightSpeed)
+
+        print("X : ", gp.getValues()[0])
+        print("Y : ", gp.getValues()[1])
+        print("Z : ", gp.getValues()[2])
+        
+        print("Angle X : ", iu.getRollPitchYaw()[0])
+        print("Angle Y : ", iu.getRollPitchYaw()[1])
+        print("Angle Z : ", iu.getRollPitchYaw()[2])
+
+        print("Acc X : ", acc.getValues()[0])
+        print("Acc Y : ", acc.getValues()[1])
+        print("Acc Z : ", acc.getValues()[2])
+
+        print("Gy X : ", gy.getValues()[0])
+        print("Gy Y : ", gy.getValues()[1])
+        print("Gy Z : ", gy.getValues()[2])
+        print("########################")
+
+if __name__ == "__main__":
+    main()

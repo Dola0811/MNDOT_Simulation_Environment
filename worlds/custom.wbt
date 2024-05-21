@@ -227,5 +227,5 @@ Robot {
   boundingObject USE Body
   physics Physics {
   }
-  controller "Keyboard"
+  controller "Keyboard_py"
 }
