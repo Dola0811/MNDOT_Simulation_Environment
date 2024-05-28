@@ -33,12 +33,12 @@ def kalman_filter_update(x, P, gps_data, imu_data, rssi_data):
         [0, 0, 1, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 1]
     ])
-    Q = np.eye(9) * 0.01
+    Q = np.eye(9) * 0.1 # Increasing from 0.01 to 0.1 to account for more dynamic unpredictabilit
     R_combined = np.array([
-        [0.0001, 0, 0, 0],
-        [0, 0.0001, 0, 0],
-        [0, 0, 0.0001, 0],
-        [0, 0, 0, 2]
+        [9, 0, 0, 0], # Variance for GPS X (3m)^2
+        [0, 9, 0, 0], # Variance for GPS Y (3m)^2
+        [0, 0, 9, 0], # Variance for GPS Z (3m)^2
+        [0, 0, 0, 16] # Variance for RSSI (4 units)^2
     ])
 
     u = np.hstack(imu_data)
@@ -153,7 +153,7 @@ def main():
         imu_acc = np.array(acc.getValues())
         imu_gyro = np.array(gyro.getValues())
         imu_data = np.hstack([imu_acc, imu_gyro])
-        rssi_measurement = np.random.normal(-70, 2)  # Simulated RSSI value
+        rssi_measurement = np.random.normal(-70, 4)  # Simulated RSSI value
 
         x, P = kalman_filter_update(x, P, noisy_gps, imu_data, rssi_measurement)
 

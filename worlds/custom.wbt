@@ -227,5 +227,5 @@ Robot {
   boundingObject USE Body
   physics Physics {
   }
-  controller "gps_acc_gyro_Keyboard_py"
+  controller "kf_gps_acc_gy_rssi"
 }
