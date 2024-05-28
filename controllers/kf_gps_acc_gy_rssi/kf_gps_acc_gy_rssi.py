@@ -75,7 +75,7 @@ def plot_positions(ground_truth, measured, filtered):
     plt.axis('tight')  # Adjust plot limits to the data range
 
     # Specify the path and file name for Windows
-    save_path = r"C:\Users\dolai\OneDrive\Documents\mndot_project_simulation_environment\controllers\Keyboard_py\GPS_Tracking_with_Kalman_Filter.png"
+    save_path = r"C:\Users\dolai\OneDrive\Documents\mndot_project_simulation_environment\controllers\kf_gps_acc_gy_rssi\GPS_Tracking_with_Kalman_Filter.png"
     
     # Save the plot to a file
     plt.savefig(save_path)  # Make sure to use the raw string for the path
