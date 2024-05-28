@@ -1,11 +1,10 @@
-from controller import Robot, Motor, Keyboard, GPS, InertialUnit, Accelerometer, Gyro
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+from controller import Robot, Motor, Keyboard, GPS, InertialUnit, Accelerometer, Gyro
 
 TIME_STEP = 64
 
 def kalman_filter_update(x, P, gps_data, imu_data, rssi_data):
-    # Define the matrices F, B, H_combined, Q, R_combined here 
     F = np.array([
         [1, 0, 0, 1, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 1, 0, 0, 0, 0],
@@ -34,28 +33,43 @@ def kalman_filter_update(x, P, gps_data, imu_data, rssi_data):
         [0, 0, 1, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 1]
     ])
-    Q = np.eye(9) * 0.01  # Process noise covariance
+    Q = np.eye(9) * 0.01
     R_combined = np.array([
         [0.0001, 0, 0, 0],
         [0, 0.0001, 0, 0],
         [0, 0, 0.0001, 0],
         [0, 0, 0, 2]
-    ])  # Measurement noise covariance
+    ])
 
-    # Prediction
     u = np.hstack(imu_data)
     x = F @ x + B @ u
     P = F @ P @ F.T + Q
 
-    # Update
     z = np.hstack([gps_data, rssi_data])
-    y = z - H_combined @ x  # Measurement residual
-    S = H_combined @ P @ H_combined.T + R_combined  # Residual covariance
-    K = P @ H_combined.T @ np.linalg.inv(S)  # Kalman gain
+    y = z - H_combined @ x
+    S = H_combined @ P @ H_combined.T + R_combined
+    K = P @ H_combined.T @ np.linalg.inv(S)
     x = x + K @ y
     P = (np.eye(len(x)) - K @ H_combined) @ P
 
     return x, P
+
+def calculate_residuals(measured, filtered):
+    return np.array(measured) - np.array(filtered)
+
+def plot_residuals(residuals):
+    print("Plotting residuals...")
+    plt.figure(figsize=(10, 5))
+    plt.plot(residuals[:, 0], label='Longitude Residuals')
+    plt.plot(residuals[:, 1], label='Latitude Residuals')
+    plt.title('Residuals of Kalman Filter')
+    plt.xlabel('Time Step')
+    plt.ylabel('Residual')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('C:/Users/dolai/OneDrive/Documents/mndot_project_simulation_environment/controllers/kf_gps_acc_gy_rssi/Residuals_Kalman_Filter.png')
+    plt.close()
+    print("Residual plot saved.")
 
 def plot_positions(ground_truth, measured, filtered):
     gt = np.array(ground_truth)
@@ -83,9 +97,10 @@ def plot_positions(ground_truth, measured, filtered):
     plt.show(block=True)  # Display the plot with blocking enabled
 
 
+
+
 def main():
     robot = Robot()
-
     gps = robot.getDevice("global")
     gps.enable(TIME_STEP)
     imu = robot.getDevice("imu")
@@ -106,9 +121,9 @@ def main():
     kb = robot.getKeyboard()
     kb.enable(TIME_STEP)
 
-    x = np.zeros(9)  # State vector: [pos, vel, ang_vel]
-    P = np.eye(9) * 100  # Initial uncertainty
-    gps_noise_std_dev = 0.00005  # Standard deviation for GPS noise
+    x = np.zeros(9)
+    P = np.eye(9) * 100
+    gps_noise_std_dev = 0.00005
 
     ground_truth_positions = []
     measured_positions = []
@@ -142,16 +157,16 @@ def main():
 
         x, P = kalman_filter_update(x, P, noisy_gps, imu_data, rssi_measurement)
 
-        ground_truth_positions.append(np.array(gps.getValues()))  # Actual position from GPS
-        measured_positions.append(noisy_gps)  # Noisy GPS readings
-        filtered_positions.append(x[:3])  # Kalman filter output
+        ground_truth_positions.append(np.array(gps.getValues()))
+        measured_positions.append(noisy_gps)
+        filtered_positions.append(x[:3])
 
-        # Print the positions
         print("Ground Truth:", np.array(gps.getValues()))
         print("Measured GPS:", noisy_gps)
         print("Filtered GPS:", x[:3])
 
-    # After the loop, plot the positions
+    residuals = calculate_residuals(measured_positions, filtered_positions)
+    plot_residuals(residuals)
     plot_positions(ground_truth_positions, measured_positions, filtered_positions)
 
 if __name__ == "__main__":
