@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from controller import Robot, Motor, Keyboard, GPS, Accelerometer, Gyro
 
-TIME_STEP = 64
+TIME_STEP = 1000
 
 def is_gps_data_valid(gps_data):
     """Utility function to check if GPS data is valid."""
@@ -76,18 +76,30 @@ def plot_residuals(residuals):
     plt.close()
 
 def plot_positions(ground_truth, measured, filtered):
-    """Plot ground truth, measured, and filtered GPS positions."""
+    """Plot ground truth, measured, and filtered GPS positions with enhanced visibility for ground truth."""
     plt.figure(figsize=(10, 8))
-    plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth')
-    plt.plot(measured[:, 0], measured[:, 1], 'r--', label='Measured GPS')
-    plt.plot(filtered[:, 0], filtered[:, 1], 'bo-', label='Filtered GPS')
+
+    # Plot measured GPS with a dotted line
+    plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS', linewidth=2)
+
+    # Plot filtered GPS with distinct markers
+    plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS', linewidth=2, marker='^', markersize=10)
+
+    # Highlight the ground truth with a unique marker and line style
+    plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth', marker='s', markersize=12, linewidth=1)
+
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title('GPS Tracking with Kalman Filter')
-    plt.legend()
+    plt.legend(loc='upper right', bbox_to_anchor=(1.2, 1))
     plt.grid(True)
+    plt.axis('equal')  # Ensure that the scale of x and y axes are equal to see the trajectory properly
     plt.savefig('GPS_Tracking_with_Kalman_Filter.png')
     plt.show()
+
+
+
+
 
 def main():
     robot = Robot()
@@ -174,11 +186,11 @@ def main():
         gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
         x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
         ground_truth_positions.append(gps_data)
-        measured_positions.append(gps_data + np.random.normal(0, 3, 3))  # Simulate GPS noise
+        measured_positions.append(gps_data + np.random.normal(0, 0.005, 3))  # Simulate GPS noise
         filtered_positions.append(x[:3])
 
         print("Ground Truth:", gps_data)
-        print("Measured GPS:", gps_data + np.random.normal(0, 3, 3))
+        print("Measured GPS:", gps_data + np.random.normal(0, 0.005, 3))
         print("Filtered GPS:", x[:3])
 
     residuals = calculate_residuals(measured_positions, filtered_positions)
