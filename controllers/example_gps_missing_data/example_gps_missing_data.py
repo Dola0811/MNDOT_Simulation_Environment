@@ -1,5 +1,8 @@
-import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')  # Or another backend appropriate for your system
 import matplotlib.pyplot as plt
+import numpy as np
+
 from controller import Robot, Motor, Keyboard, GPS, Accelerometer, Gyro
 
 TIME_STEP = 1000
@@ -31,7 +34,7 @@ def handle_keyboard(kb, wheels):
 
 def read_sensors(gps, acc, gyro):
     """Read sensor data from Webots devices."""
-    gps_data = gps.getValues()
+    gps_data = gps.getValues() 
     acc_data = acc.getValues()
     gyro_data = gyro.getValues()
     imu_data = np.hstack([acc_data, gyro_data])
@@ -76,28 +79,35 @@ def plot_residuals(residuals):
     plt.close()
 
 def plot_positions(ground_truth, measured, filtered):
-    """Plot ground truth, measured, and filtered GPS positions with enhanced visibility for ground truth."""
     plt.figure(figsize=(10, 8))
 
-    # Plot measured GPS with a dotted line
-    plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS', linewidth=2)
+    # Convert lists to numpy arrays for easier handling
+    ground_truth = np.array(ground_truth)
+    measured = np.array([m if m is not None else [np.nan, np.nan, np.nan] for m in measured])
+    filtered = np.array(filtered)
 
-    # Plot filtered GPS with distinct markers
-    plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS', linewidth=2, marker='^', markersize=10)
+    # Plotting ground truth
+    if not np.all(np.isnan(ground_truth)):
+        plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth', marker='s', markersize=12, linewidth=1)
 
-    # Highlight the ground truth with a unique marker and line style
-    plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth', marker='s', markersize=12, linewidth=1)
+    # Plotting measured GPS positions; uses NaN to handle missing data seamlessly
+    if not np.all(np.isnan(measured)):
+        plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS', linewidth=2)
 
+    # Plotting filtered GPS positions
+    if not np.all(np.isnan(filtered)):
+        plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS', linewidth=2, marker='^', markersize=10)
+
+    # Setting up plot labels and layout
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title('GPS Tracking with Kalman Filter')
     plt.legend(loc='upper right', bbox_to_anchor=(1.2, 1))
     plt.grid(True)
-    plt.axis('equal')  # Ensure that the scale of x and y axes are equal to see the trajectory properly
+    plt.axis('equal')  # Ensures equal aspect ratio
+
     plt.savefig('GPS_Tracking_with_Kalman_Filter.png')
-    plt.show()
-
-
+    plt.show(block=True)
 
 
 
@@ -186,11 +196,17 @@ def main():
         gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
         x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
         ground_truth_positions.append(gps_data)
-        measured_positions.append(gps_data + np.random.normal(0, 0.005, 3))  # Simulate GPS noise
+        # Simulate that the measured GPS data may sometimes be missing
+        if np.random.rand() > 0.2:  # 80% chance to have measured data
+            noisy_gps = gps_data + np.random.normal(0, 0.05, 3)
+            measured_positions.append(noisy_gps)
+            print("Measured GPS:", noisy_gps)
+        else:
+            measured_positions.append([None, None, None])  # Append None to indicate missing data
+            print("Measured GPS: Data Missing")
         filtered_positions.append(x[:3])
-
+    
         print("Ground Truth:", gps_data)
-        print("Measured GPS:", gps_data + np.random.normal(0, 0.005, 3))
         print("Filtered GPS:", x[:3])
 
     residuals = calculate_residuals(measured_positions, filtered_positions)
