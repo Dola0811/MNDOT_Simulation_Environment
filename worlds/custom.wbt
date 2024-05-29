@@ -227,5 +227,5 @@ Robot {
   boundingObject USE Body
   physics Physics {
   }
-  controller "kf_gps_acc_gy_rssi"
+  controller "missing_gps_data_kf_gps_acc_gy_rssi"
 }

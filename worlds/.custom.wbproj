@@ -5,7 +5,7 @@ sceneTreePerspectives: 000000ff000000010000000300000026000000c0000000fa010000000
 maximizedDockId: -1
 centralWidgetVisible: 1
 orthographicViewHeight: 1
-textFiles: 0 "controllers/kf_gps_acc_gy_rssi/kf_gps_acc_gy_rssi.py"
+textFiles: 0 "controllers/missing_gps_data_kf_gps_acc_gy_rssi/missing_gps_data_kf_gps_acc_gy_rssi.py"
 globalOptionalRendering: DistanceSensorRays::RangeFinderFrustums
 consoles: Console:All:All
 consoles: Console:All:All
