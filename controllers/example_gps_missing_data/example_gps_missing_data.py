@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('TkAgg')  # Or another backend appropriate for your system
+matplotlib.use('Agg')  # Or another backend appropriate for your system
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -33,13 +33,19 @@ def handle_keyboard(kb, wheels):
         wheel.setVelocity(leftSpeed if wheel.getName() in ['wheel1', 'wheel3'] else rightSpeed)
 
 def read_sensors(gps, acc, gyro):
-    """Read sensor data from Webots devices."""
+    """Read sensor data from Webots devices, handle missing GPS data robustly."""
     gps_data = gps.getValues() 
     acc_data = acc.getValues()
     gyro_data = gyro.getValues()
     imu_data = np.hstack([acc_data, gyro_data])
+
+    # Assume missing data when the GPS reading fails certain criteria
+    if not is_gps_data_valid(gps_data):
+        gps_data = np.array([np.nan, np.nan, np.nan])
+
     rssi_measurement = np.random.normal(-70, 4)  # Simulated RSSI value
     return gps_data, imu_data, rssi_measurement
+
 
 def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
     """Kalman filter update step with mechanism to use estimated GPS data when actual data is missing."""
@@ -78,6 +84,7 @@ def plot_residuals(residuals):
     plt.savefig('Residuals_Kalman_Filter.png')
     plt.close()
 
+
 def plot_positions(ground_truth, measured, filtered):
     plt.figure(figsize=(10, 8))
 
@@ -85,6 +92,11 @@ def plot_positions(ground_truth, measured, filtered):
     ground_truth = np.array(ground_truth)
     measured = np.array([m if m is not None else [np.nan, np.nan, np.nan] for m in measured])
     filtered = np.array(filtered)
+
+    # Handling NaN values explicitly
+    ground_truth = np.where(np.isnan(ground_truth), np.nan, ground_truth)
+    measured = np.where(np.isnan(measured), np.nan, measured)
+    filtered = np.where(np.isnan(filtered), np.nan, filtered)
 
     # Plotting ground truth
     if not np.all(np.isnan(ground_truth)):
@@ -196,19 +208,23 @@ def main():
         gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
         x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
         ground_truth_positions.append(gps_data)
-        # Simulate that the measured GPS data may sometimes be missing
+    
         if np.random.rand() > 0.2:  # 80% chance to have measured data
             noisy_gps = gps_data + np.random.normal(0, 0.05, 3)
-            measured_positions.append(noisy_gps)
-            print("Measured GPS:", noisy_gps)
         else:
-            measured_positions.append([None, None, None])  # Append None to indicate missing data
-            print("Measured GPS: Data Missing")
+            noisy_gps = np.array([np.nan, np.nan, np.nan])  # Use NaN for missing data
+    
+        measured_positions.append(noisy_gps)
         filtered_positions.append(x[:3])
     
+  
+    
         print("Ground Truth:", gps_data)
+        print("Measured GPS:", noisy_gps if not np.isnan(noisy_gps).all() else "Data Missing")
         print("Filtered GPS:", x[:3])
 
+
+        
     residuals = calculate_residuals(measured_positions, filtered_positions)
     plot_residuals(residuals)
     plot_positions(np.array(ground_truth_positions), np.array(measured_positions), np.array(filtered_positions))
