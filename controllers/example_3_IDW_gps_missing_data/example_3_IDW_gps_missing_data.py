@@ -74,6 +74,7 @@ def calculate_residuals(measured, filtered):
     """Calculate residuals between measured and filtered GPS data."""
     return np.array(measured) - np.array(filtered)
 
+
 def plot_residuals(residuals):
     plt.figure(figsize=(10, 5))
     plt.plot(residuals, label='Residuals')
@@ -87,9 +88,24 @@ def plot_residuals(residuals):
 
 def plot_positions(ground_truth, measured, filtered):
     plt.figure(figsize=(10, 8))
-    plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth')
-    plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS')
-    plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS')
+    
+    # Debugging: Check array shapes
+    print("Ground Truth Shape:", ground_truth.shape)
+    print("Measured Shape:", measured.shape)
+    print("Filtered Shape:", filtered.shape)
+
+    # Check for NaN values
+    print("Ground Truth NaNs:", np.isnan(ground_truth).all())
+    print("Measured NaNs:", np.isnan(measured).all())
+    print("Filtered NaNs:", np.isnan(filtered).all())
+
+    if not np.isnan(ground_truth).all():
+        plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth')
+    if not np.isnan(measured).all():
+        plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS')
+    if not np.isnan(filtered).all():
+        plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS')
+    
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title('GPS Tracking with Kalman Filter')
