@@ -31,22 +31,22 @@ def handle_keyboard(kb, wheels):
     for wheel in wheels:
         wheel.setVelocity(leftSpeed if wheel.getName() in ['wheel1', 'wheel3'] else rightSpeed)
 
+# Global list to store GPS data history
+gps_history = deque(maxlen=10)  # Adjust size based on desired history length
+
 def read_sensors(gps, acc, gyro):
-    """Read sensor data from Webots devices, handle missing GPS data robustly."""
-    gps_data = gps.getValues() 
+    gps_data = gps.getValues()
     acc_data = acc.getValues()
     gyro_data = gyro.getValues()
     imu_data = np.hstack([acc_data, gyro_data])
 
-    # Assume missing data when the GPS reading fails certain criteria
-    if not is_gps_data_valid(gps_data):
-        gps_data = np.array([np.nan, np.nan, np.nan])
+    if is_gps_data_valid(gps_data):
+        gps_history.append(gps_data)
+    else:
+        gps_data = np.array([np.nan, np.nan, np.nan])  # Mark as missing
 
     rssi_measurement = np.random.normal(-70, 4)  # Simulated RSSI value
     return gps_data, imu_data, rssi_measurement
-
-
-
 
 
 
@@ -70,9 +70,16 @@ def inverse_distance_weighting(current_time_index, all_positions, n_neighbors=3,
 
 def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
     """Perform a Kalman filter update using the provided measurements and noise characteristics."""
+def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
     if np.isnan(gps_data).any():
-        gps_data = x[:3]  # Use predicted position if GPS data is missing
-        R[:3, :3] *= 10  # Increase measurement uncertainty
+        # Attempt to interpolate using IDW if GPS data is missing
+        interpolated_gps = inverse_distance_weighting(len(gps_history), list(gps_history))
+        if np.isnan(interpolated_gps).any():
+            gps_data = x[:3]  # Use last predicted state if IDW fails
+            R[:3, :3] *= 10  # Increase measurement uncertainty
+        else:
+            gps_data = interpolated_gps  # Use interpolated data
+
     z = np.hstack([gps_data, rssi_data])  # Measurement vector
     u = imu_data  # Control input: IMU data
     x_pred = F @ x + B @ u  # Predict state
