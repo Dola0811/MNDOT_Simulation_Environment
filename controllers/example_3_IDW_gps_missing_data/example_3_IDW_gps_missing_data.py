@@ -10,7 +10,7 @@ TIME_STEP = 1000
 def is_gps_data_valid(gps_data):
     """Utility function to check if GPS data is valid."""
     return gps_data is not None and not np.isnan(gps_data).any()
-
+    
 def handle_keyboard(kb, wheels):
     """Handle keyboard inputs to control robot's wheels."""
     key = kb.getKey()
@@ -31,19 +31,24 @@ def handle_keyboard(kb, wheels):
     for wheel in wheels:
         wheel.setVelocity(leftSpeed if wheel.getName() in ['wheel1', 'wheel3'] else rightSpeed)
 
-def read_sensors(gps, acc, gyro, step_count, outage_steps=10, recovery_steps=50):
-    """Read sensor data from Webots devices, simulating periodic GPS outages for measured data."""
-    gps_data = gps.getValues() if gps.getValues() else np.array([np.nan, np.nan, np.nan])
-    simulate_gps_missing = (step_count % (outage_steps + recovery_steps) < outage_steps)
-
-    measured_gps_data = np.array([np.nan, np.nan, np.nan]) if simulate_gps_missing else gps_data + np.random.normal(0, 0.05, 3)
-
+def read_sensors(gps, acc, gyro):
+    """Read sensor data from Webots devices, handle missing GPS data robustly."""
+    gps_data = gps.getValues() 
     acc_data = acc.getValues()
     gyro_data = gyro.getValues()
     imu_data = np.hstack([acc_data, gyro_data])
-    rssi_measurement = np.random.normal(-70, 4)
 
-    return gps_data, measured_gps_data, imu_data, rssi_measurement
+    # Assume missing data when the GPS reading fails certain criteria
+    if not is_gps_data_valid(gps_data):
+        gps_data = np.array([np.nan, np.nan, np.nan])
+
+    rssi_measurement = np.random.normal(-70, 4)  # Simulated RSSI value
+    return gps_data, imu_data, rssi_measurement
+
+
+
+
+
 
 def inverse_distance_weighting(current_time_index, all_positions, n_neighbors=3, power=2):
     """Apply IDW to interpolate missing GPS data based on recent measurements."""
@@ -99,21 +104,40 @@ def plot_residuals(residuals):
 
 def plot_positions(ground_truth, measured, filtered):
     plt.figure(figsize=(10, 8))
-    ground_truth = np.array(ground_truth)
-    measured = np.array(measured)
-    filtered = np.array(filtered)
-    plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth', marker='s', markersize=12, linewidth=1)
-    plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS', linewidth=2)
-    plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS', linewidth=2, marker='^', markersize=10)
 
+    # Convert lists to numpy arrays for easier handling
+    ground_truth = np.array(ground_truth)
+    measured = np.array([m if m is not None else [np.nan, np.nan, np.nan] for m in measured])
+    filtered = np.array(filtered)
+
+    # Handling NaN values explicitly
+    ground_truth = np.where(np.isnan(ground_truth), np.nan, ground_truth)
+    measured = np.where(np.isnan(measured), np.nan, measured)
+    filtered = np.where(np.isnan(filtered), np.nan, filtered)
+
+    # Plotting ground truth
+    if not np.all(np.isnan(ground_truth)):
+        plt.plot(ground_truth[:, 0], ground_truth[:, 1], 'g-', label='Ground Truth', marker='s', markersize=12, linewidth=1)
+
+    # Plotting measured GPS positions; uses NaN to handle missing data seamlessly
+    if not np.all(np.isnan(measured)):
+        plt.plot(measured[:, 0], measured[:, 1], 'r:', label='Measured GPS', linewidth=2)
+
+    # Plotting filtered GPS positions
+    if not np.all(np.isnan(filtered)):
+        plt.plot(filtered[:, 0], filtered[:, 1], 'b--', label='Filtered GPS', linewidth=2, marker='^', markersize=10)
+
+    # Setting up plot labels and layout
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
-    plt.title('GPS Tracking with Kalman Filter and IDW')
-    plt.legend(loc='upper right')
+    plt.title('GPS Tracking with Kalman Filter')
+    plt.legend(loc='upper right', bbox_to_anchor=(1.2, 1))
     plt.grid(True)
-    plt.axis('equal')
-    plt.savefig('GPS_Tracking_with_Kalman_Filter_and_IDW.png')
-    plt.close()
+    plt.axis('equal')  # Ensures equal aspect ratio
+
+    plt.savefig('GPS_Tracking_with_Kalman_Filter.png')
+    plt.show(block=True)
+
 
 def main():
     robot = Robot()
@@ -137,6 +161,8 @@ def main():
 
     x = np.zeros(9)
     P = np.eye(9) * 100
+    availability_state = {'available': True, 'next_change': 50}
+    
     F = np.array([
         [1, 0, 0, 1, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 1, 0, 0, 0, 0],
@@ -173,14 +199,14 @@ def main():
         [0, 0, 0, 16]
     ])
 
-
     step_count = 0  # Initialize step counter for simulated GPS outages
-    gps_buffer = deque(maxlen=10)
-
     ground_truth_positions = []
     measured_positions = []
     filtered_positions = []
 
+    # Initialize counters
+    missing_steps = 0  # Steps until data is missing again
+    available_steps = np.random.randint(5, 11)  # Randomly c
 
     while robot.step(TIME_STEP) != -1:
         key = kb.getKey()
@@ -202,28 +228,31 @@ def main():
         for i in range(4):
             wheels[i].setVelocity(leftSpeed if i % 2 == 0 else rightSpeed)
 
-        gps_data, measured_gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro, step_count)
+        gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
+        x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
         ground_truth_positions.append(gps_data)
+    
+        if available_steps > 0:
+            noisy_gps = gps_data + np.random.normal(0, 0.05, 3)
+            available_steps -= 1
+        else:
+            if missing_steps == 0:
+                # Switch to missing data for 5 to 10 steps randomly
+                missing_steps = np.random.randint(5, 11)
+            noisy_gps = np.array([np.nan, np.nan, np.nan])
+            missing_steps -= 1
+            if missing_steps == 0:
+                # Switch back to available data
+                available_steps = np.random.randint(5, 11)
 
-        if np.isnan(measured_gps_data).any():
-            measured_gps_data = inverse_distance_weighting(step_count, ground_truth_positions)
-
-        measured_positions.append(measured_gps_data)
-        x, P = kalman_filter_update(x, P, measured_gps_data, imu_data, rssi_data, H, R, F, B, Q)
+        measured_positions.append(noisy_gps)
         filtered_positions.append(x[:3])
-        
-            # Printing current data
+
         print(f"Step {step_count}:")
         print("Ground Truth:", gps_data)
-        if np.isnan(measured_gps_data).any():
-            print("Measured GPS: Data missing")
-        else:
-            print("Measured GPS:", measured_gps_data)
-
-        print("Filtered GPS:", x[:3])    
-
+        print("Measured GPS:", noisy_gps if not np.isnan(noisy_gps).all() else "Data Missing")
+        print("Filtered GPS:", x[:3])
         step_count += 1
-
 
 
     residuals = calculate_residuals(measured_positions, filtered_positions)
