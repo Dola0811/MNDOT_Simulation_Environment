@@ -215,7 +215,11 @@ def main():
             # Printing current data
         print(f"Step {step_count}:")
         print("Ground Truth:", gps_data)
-        print("Measured GPS:", measured_gps_data)
+        if np.isnan(measured_gps_data).any():
+            print("Measured GPS: Data missing")
+        else:
+            print("Measured GPS:", measured_gps_data)
+
         print("Filtered GPS:", x[:3])    
 
         step_count += 1

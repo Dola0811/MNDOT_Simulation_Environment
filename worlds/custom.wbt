@@ -227,5 +227,5 @@ Robot {
   boundingObject USE Body
   physics Physics {
   }
-  controller "example_gps_missing_data"
+  controller "example_2_continuous_gps_missing_data"
 }
