@@ -10,7 +10,7 @@ from collections import deque
 
 TIME_STEP = 1000
 
-number_of_rssi_sources = 3  # Define how many RSSI measurements you expect
+number_of_rssi_sources = 100  # Define how many RSSI measurements you expect
 
 def is_gps_data_valid(gps_data):
     """Utility function to check if GPS data is valid."""
