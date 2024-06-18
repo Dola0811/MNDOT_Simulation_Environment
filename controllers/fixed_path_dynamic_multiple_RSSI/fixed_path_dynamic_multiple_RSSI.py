@@ -36,7 +36,6 @@ def handle_keyboard(kb, wheels):
 # Global list to store GPS data history
 gps_history = deque(maxlen=10)  # Adjust size based on desired history length
 
-
 def read_sensors(gps, acc, gyro):
     gps_data = gps.getValues()
     acc_data = acc.getValues()
@@ -52,8 +51,6 @@ def read_sensors(gps, acc, gyro):
     rssi_measurements = [np.random.normal(-70, 4) for _ in range(number_of_rssi_sources)]
 
     return gps_data, imu_data, rssi_measurements
-
-
 
 def inverse_distance_weighting(current_time_index, all_positions, n_neighbors=3, power=2):
     """Apply IDW to interpolate missing GPS data based on recent measurements."""
@@ -71,10 +68,7 @@ def inverse_distance_weighting(current_time_index, all_positions, n_neighbors=3,
     total_weight = np.sum(weights)
 
     return weighted_sum / total_weight if total_weight else np.array([np.nan, np.nan, np.nan])
-    
 
-
-    """Perform a Kalman filter update using the provided measurements and noise characteristics."""
 def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
     if np.isnan(gps_data).any():
         # Attempt to interpolate using IDW if GPS data is missing
@@ -97,7 +91,6 @@ def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
     P_updated = (np.eye(len(x)) - K @ H) @ P_pred  # Update uncertainty
     return x_updated, P_updated
 
-
 def calculate_residuals(measured, filtered):
     """Calculate residuals between measured and filtered GPS data."""
     return np.array(measured) - np.array(filtered)
@@ -114,7 +107,6 @@ def plot_residuals(residuals):
     plt.grid(True)
     plt.savefig('Residuals_Kalman_Filter.png')
     plt.close()
-
 
 def plot_positions(ground_truth, measured, filtered):
     plt.figure(figsize=(10, 8))
@@ -150,8 +142,7 @@ def plot_positions(ground_truth, measured, filtered):
     plt.axis('equal')  # Ensures equal aspect ratio
 
     plt.savefig('GPS_Tracking_with_Kalman_Filter.png')
-    plt.show(block=True)
-
+    plt.close()
 
 def build_measurement_model(number_of_rssi_sources):
     # Create the top part for GPS data
@@ -182,6 +173,20 @@ def build_noise_covariance(number_of_rssi_sources):
 # Use this function to generate R dynamically
 R = build_noise_covariance(number_of_rssi_sources)
 
+# Example path with more detailed movements: [(leftSpeed, rightSpeed), duration in steps]
+path = [
+    (1.0, 1.0, 5),   # Move forward for 5 steps
+    (1.0, -1.0, 2),  # Turn right for 2 steps
+    (1.0, 1.0, 3),   # Move forward for 3 steps
+    (-1.0, -1.0, 2), # Move backward for 2 steps
+    (-1.0, 1.0, 2),  # Turn left for 2 steps
+    (1.0, 1.0, 4),   # Move forward for 4 steps
+    (0.0, 0.0, 1),   # Stop for 1 steps
+    (-1.0, 1.0, 2),  # Turn left for 2 steps
+    (1.0, 1.0, 3),   # Move forward for 3 steps
+    (1.0, -1.0, 2),  # Turn right for 2 steps
+    (0.0, 0.0, 1)    # Stop for 1 steps
+]
 
 def main():
     robot = Robot()
@@ -198,6 +203,9 @@ def main():
         wheel.setPosition(float('inf'))  # Set to infinite rotation
         wheel.setVelocity(0)
         wheels.append(wheel)
+
+    kb = Keyboard()
+    kb.enable(TIME_STEP)
 
     x = np.zeros(9)
     P = np.eye(9) * 100
@@ -223,22 +231,27 @@ def main():
         [0, 0, 0, 0, 1, 0],
         [0, 0, 0, 0, 0, 1]
     ])
-  
-   
     Q = np.eye(9) * 0.1
     step_count = 0
     ground_truth_positions = []
     measured_positions = []
     filtered_positions = []
 
-    # Predefined path as a list of (speed_left, speed_right) tuples
-    path = [(1.0, 1.0), (1.0, -1.0), (1.0, 1.0), (0, 0)]  # Example: move forward, turn right, move forward, stop
     current_command = 0
+    command_duration = 0
 
     while robot.step(TIME_STEP) != -1 and current_command < len(path):
-        leftSpeed, rightSpeed = path[current_command]
-        for i in range(4):
-            wheels[i].setVelocity(leftSpeed if i % 2 == 0 else rightSpeed)
+        handle_keyboard(kb, wheels)  # Handle keyboard inputs
+
+        if command_duration >= path[current_command][2]:
+            current_command += 1
+            command_duration = 0
+
+        if current_command < len(path):
+            leftSpeed, rightSpeed, _ = path[current_command]
+            for i in range(4):
+                wheels[i].setVelocity(leftSpeed if i % 2 == 0 else rightSpeed)
+            command_duration += 1
 
         # Read sensors
         gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
@@ -255,7 +268,6 @@ def main():
         print("Filtered GPS:", x[:3])
 
         step_count += 1
-        current_command += 1  # Move to the next command in the path
 
     residuals = calculate_residuals(measured_positions, filtered_positions)
     plot_residuals(residuals)
