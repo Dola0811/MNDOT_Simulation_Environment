@@ -240,6 +240,9 @@ def main():
     current_command = 0
     command_duration = 0
 
+    consecutive_missing_steps = 3  # Number of consecutive steps with missing GPS data
+    missing_gps_start_step = 5  # Step at which missing GPS data starts
+
     while robot.step(TIME_STEP) != -1 and current_command < len(path):
         handle_keyboard(kb, wheels)  # Handle keyboard inputs
 
@@ -258,7 +261,12 @@ def main():
         x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
         ground_truth_positions.append(gps_data)
         
-        noisy_gps = gps_data + np.random.normal(0, 0.05, 3)  # Adding noise to GPS for realism
+        # Introduce consecutive missing GPS data
+        if missing_gps_start_step <= step_count < missing_gps_start_step + consecutive_missing_steps:
+            noisy_gps = np.array([np.nan, np.nan, np.nan])
+        else:
+            noisy_gps = gps_data + np.random.normal(0, 0.05, 3)  # Adding noise to GPS for realism
+
         measured_positions.append(noisy_gps)
         filtered_positions.append(x[:3])
 
