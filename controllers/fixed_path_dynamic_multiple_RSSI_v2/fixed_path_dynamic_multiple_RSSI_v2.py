@@ -4,10 +4,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from controller import Robot, Motor, Keyboard, GPS, Accelerometer, Gyro
 from collections import deque
+import logging
 
 TIME_STEP = 1000
 
 number_of_rssi_sources = 5  # Define how many RSSI measurements you expect
+
+# Setup logging
+logging.basicConfig(filename='filter_performance.log', level=logging.INFO, format='%(asctime)s - %(message)s')
+
 
 def is_gps_data_valid(gps_data):
     """Utility function to check if GPS data is valid."""
@@ -79,8 +84,9 @@ def kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q):
         else:
             gps_data = interpolated_gps  # Use interpolated data
 
-    # Correct use of rssi_data
-    z = np.hstack([gps_data, rssi_data])  # Ensure rssi_data is a list of RSSI values
+    # Use RSSI patterns as part of the state
+    rssi_measurement = np.mean(rssi_data)  # Simplified: use mean RSSI as a single measurement
+    z = np.hstack([gps_data, rssi_measurement])  # Extend measurement vector to include RSSI
     u = imu_data  # Control input: IMU data
     x_pred = F @ x + B @ u  # Predict state
     P_pred = F @ P @ F.T + Q  # Predict uncertainty
@@ -150,9 +156,8 @@ def build_measurement_model(number_of_rssi_sources):
     np.fill_diagonal(H_gps, 1)
     
     # Create the bottom part for RSSI data
-    H_rssi = np.zeros((number_of_rssi_sources, 9))
-    for i in range(number_of_rssi_sources):
-        H_rssi[i, -1] = 1  # Assuming RSSI affects the last state
+    H_rssi = np.zeros((1, 9))
+    H_rssi[0, -1] = 1  # Assuming RSSI affects the last state
     
     # Combine both parts
     return np.vstack((H_gps, H_rssi))
@@ -162,12 +167,12 @@ H = build_measurement_model(number_of_rssi_sources)
 
 def build_noise_covariance(number_of_rssi_sources):
     R_gps = np.array([[9, 0, 0], [0, 9, 0], [0, 0, 9]])  # GPS uncertainty
-    R_rssi = 16 * np.eye(number_of_rssi_sources)  # RSSI uncertainty
+    R_rssi = np.array([[16]])  # RSSI uncertainty for a single measurement
     
     # Combine both matrices
     return np.block([
-        [R_gps, np.zeros((3, number_of_rssi_sources))],
-        [np.zeros((number_of_rssi_sources, 3)), R_rssi]
+        [R_gps, np.zeros((3, 1))],
+        [np.zeros((1, 3)), R_rssi]
     ])
 
 # Use this function to generate R dynamically
@@ -187,6 +192,19 @@ path = [
     (1.0, -1.0, 2),  # Turn right for 2 steps
     (0.0, 0.0, 1)    # Stop for 1 steps
 ]
+
+def calculate_rmse(ground_truth, predictions):
+    """Calculate the Root Mean Square Error between ground truth and predictions."""
+    ground_truth = np.array(ground_truth)
+    predictions = np.array(predictions)
+
+    # Filter out steps where ground truth or predictions are NaN
+    mask = ~np.isnan(ground_truth).any(axis=1) & ~np.isnan(predictions).any(axis=1)
+    valid_ground_truth = ground_truth[mask]
+    valid_predictions = predictions[mask]
+
+    return np.sqrt(((valid_ground_truth - valid_predictions) ** 2).mean())
+
 
 def main():
     robot = Robot()
@@ -281,5 +299,11 @@ def main():
     plot_residuals(residuals)
     plot_positions(ground_truth_positions, measured_positions, filtered_positions)
 
+    # Calculate and log RMSE
+    rmse_value = calculate_rmse(ground_truth_positions, filtered_positions)
+    print(f"Final RMSE: {rmse_value}")
+    logging.info(f"Final RMSE: {rmse_value}")
+
 if __name__ == "__main__":
     main()
+

@@ -227,5 +227,5 @@ Robot {
   boundingObject USE Body
   physics Physics {
   }
-  controller "fixed_path_dynamic_multiple_RSSI"
+  controller "fixed_path_dynamic_multiple_RSSI_v2"
 }
