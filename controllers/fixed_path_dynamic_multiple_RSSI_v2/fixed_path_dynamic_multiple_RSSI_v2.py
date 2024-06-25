@@ -10,9 +10,8 @@ TIME_STEP = 1000
 
 number_of_rssi_sources = 5  # Define how many RSSI measurements you expect
 
-# Setup logging
-logging.basicConfig(filename='filter_performance.log', level=logging.INFO, format='%(asctime)s - %(message)s')
-
+def setup_logger():
+    logging.basicConfig(filename='simulation.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def is_gps_data_valid(gps_data):
     """Utility function to check if GPS data is valid."""
@@ -253,6 +252,8 @@ def plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values):
 
 
 def main():
+    setup_logger()
+    logging.info("Starting simulation")
     robot = Robot()
     gps = robot.getDevice("global")
     gps.enable(TIME_STEP)
@@ -315,6 +316,7 @@ def main():
     steps = []  # Initialize steps list here to track each step count
 
     while robot.step(TIME_STEP) != -1 and current_command < len(path):
+        logging.info(f"Processing step: {step_count}")
         handle_keyboard(kb, wheels)  # Handle keyboard inputs
 
         if command_duration >= path[current_command][2]:
@@ -327,6 +329,7 @@ def main():
                 wheels[i].setVelocity(leftSpeed if i % 2 == 0 else rightSpeed)
             command_duration += 1
 
+        
         # Read sensors
         gps_data, imu_data, rssi_data = read_sensors(gps, acc, gyro)
         x, P = kalman_filter_update(x, P, gps_data, imu_data, rssi_data, H, R, F, B, Q)
@@ -341,6 +344,10 @@ def main():
         measured_positions.append(noisy_gps)
         filtered_positions.append(x[:3])
 
+        logging.info(f"Updated state x: {x}")
+        logging.info(f"Measured Positions: {noisy_gps}")
+        logging.info(f"Filtered Positions: {x[:3]}")
+
         print(f"Step {step_count}:")
         print("Ground Truth:", gps_data)
         print("Measured GPS:", noisy_gps if not np.isnan(noisy_gps).all() else "Data Missing")
@@ -352,14 +359,31 @@ def main():
         current_mse = calculate_mse(ground_truth_positions, filtered_positions)
         current_max_error = calculate_max_error(ground_truth_positions, filtered_positions)
 
+            
         rmse_values.append(current_rmse)
         mae_values.append(current_mae)
         mse_values.append(current_mse)
         max_error_values.append(current_max_error)
         steps.append(step_count)
-
+   
+        # Log or print metrics for the current step
+        logging.info(f"Step {step_count}: RMSE: {current_rmse}, MAE: {current_mae}, MSE: {current_mse}, Max Error: {current_max_error}")
+        print(f"Step {step_count}: RMSE: {current_rmse}, MAE: {current_mae}, MSE: {current_mse}, Max Error: {current_max_error}")
+        
         step_count += 1
 
+    # Final metrics calculation and output after the simulation ends
+    final_rmse = np.mean(rmse_values)
+    final_mae = np.mean(mae_values)
+    final_mse = np.mean(mse_values)
+    final_max_error = max(max_error_values)
+
+    logging.info(f"Final Metrics - RMSE: {final_rmse}, MAE: {final_mae}, MSE: {final_mse}, Max Error: {final_max_error}")
+    print(f"Final Metrics - RMSE: {final_rmse}, MAE: {final_mae}, MSE: {final_mse}, Max Error: {final_max_error}")
+
+
+    logging.info("Simulation ended")
+    
     residuals = calculate_residuals(measured_positions, filtered_positions)
     plot_residuals(residuals)
     plot_positions(ground_truth_positions, measured_positions, filtered_positions)      
