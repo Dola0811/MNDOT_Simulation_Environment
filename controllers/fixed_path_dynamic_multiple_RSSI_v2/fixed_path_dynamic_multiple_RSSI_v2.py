@@ -230,6 +230,27 @@ def calculate_max_error(ground_truth, predictions):
     valid_predictions = predictions[mask]
     return np.max(np.abs(valid_ground_truth - valid_predictions))
 
+def plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values):
+    plt.figure(figsize=(12, 8))
+
+    titles = ['Root Mean Square Error Over Time', 'Mean Absolute Error Over Time',
+              'Mean Squared Error Over Time', 'Maximum Error Over Time']
+    data_series = [rmse_values, mae_values, mse_values, max_error_values]
+    labels = ['RMSE', 'MAE', 'MSE', 'Max Error']
+
+    for i, data in enumerate(data_series):
+        plt.subplot(2, 2, i + 1)
+        plt.plot(steps, data, label=labels[i], marker='o', linestyle='-', color='b')
+        plt.title(titles[i])
+        plt.xlabel('Simulation Step')
+        plt.ylabel(labels[i])
+        plt.grid(True)
+        plt.autoscale(enable=True, axis='y', tight=None)
+
+    plt.tight_layout()
+    plt.savefig('Performance_Metrics_Over_Time.png')
+    plt.close()
+
 
 def main():
     robot = Robot()
@@ -286,6 +307,13 @@ def main():
     consecutive_missing_steps = 3  # Number of consecutive steps with missing GPS data
     missing_gps_start_step = 5  # Step at which missing GPS data starts
 
+    # Initialize lists to store metrics for plotting
+    rmse_values = []
+    mae_values = []
+    mse_values = []
+    max_error_values = []
+    steps = []  # Initialize steps list here to track each step count
+
     while robot.step(TIME_STEP) != -1 and current_command < len(path):
         handle_keyboard(kb, wheels)  # Handle keyboard inputs
 
@@ -337,7 +365,25 @@ def main():
     print(f"Maximum Error: {max_error_value}")
 
     # Log the metrics for later review and analysis
-    logging.info(f"RMSE: {rmse_value}, MAE: {mae_value}, MSE: {mse_value}, Max Error: {max_error_value}")\]/
+    logging.info(f"RMSE: {rmse_value}, MAE: {mae_value}, MSE: {mse_value}, Max Error: {max_error_value}")
+
+    ground_truth = gps.getValues()  # This method might not exist; adjust based on your system
+    predicted = x[:3]  # Assuming 'x' holds the predicted state including position
+   
+    if len(ground_truth_positions) > 0 and len(filtered_positions) > 0:  # Ensure there's data to calculate metrics
+        current_rmse = calculate_rmse([ground_truth], [predicted])
+        current_mae = calculate_mae([ground_truth], [predicted])
+        current_mse = calculate_mse([ground_truth], [predicted])
+        current_max_error = calculate_max_error([ground_truth], [predicted])
+
+        rmse_values.append(current_rmse)
+        mae_values.append(current_mae)
+        mse_values.append(current_mse)
+        max_error_values.append(current_max_error)
+        steps.append(step_count)  # Track the step count for plotting   
+
+    plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values)
+
 if __name__ == "__main__":
     main()
 
