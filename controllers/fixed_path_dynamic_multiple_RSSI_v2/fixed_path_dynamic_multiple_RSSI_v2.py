@@ -194,16 +194,41 @@ path = [
 ]
 
 def calculate_rmse(ground_truth, predictions):
-    """Calculate the Root Mean Square Error between ground truth and predictions."""
+    """Calculate the Root Mean Square Error (RMSE) between ground truth and predictions."""
     ground_truth = np.array(ground_truth)
     predictions = np.array(predictions)
-
-    # Filter out steps where ground truth or predictions are NaN
+    # Ensure we only calculate where both ground truth and predictions are available
     mask = ~np.isnan(ground_truth).any(axis=1) & ~np.isnan(predictions).any(axis=1)
     valid_ground_truth = ground_truth[mask]
     valid_predictions = predictions[mask]
+    return np.sqrt(np.mean((valid_ground_truth - valid_predictions) ** 2))
 
-    return np.sqrt(((valid_ground_truth - valid_predictions) ** 2).mean())
+def calculate_mae(ground_truth, predictions):
+    """Calculate the Mean Absolute Error (MAE) between ground truth and predictions."""
+    ground_truth = np.array(ground_truth)
+    predictions = np.array(predictions)
+    mask = ~np.isnan(ground_truth).any(axis=1) & ~np.isnan(predictions).any(axis=1)
+    valid_ground_truth = ground_truth[mask]
+    valid_predictions = predictions[mask]
+    return np.mean(np.abs(valid_ground_truth - valid_predictions))
+
+def calculate_mse(ground_truth, predictions):
+    """Calculate the Mean Squared Error (MSE) between ground truth and predictions."""
+    ground_truth = np.array(ground_truth)
+    predictions = np.array(predictions)
+    mask = ~np.isnan(ground_truth).any(axis=1) & ~np.isnan(predictions).any(axis=1)
+    valid_ground_truth = ground_truth[mask]
+    valid_predictions = predictions[mask]
+    return np.mean((valid_ground_truth - valid_predictions) ** 2)
+
+def calculate_max_error(ground_truth, predictions):
+    """Calculate the maximum error at any step between ground truth and predictions."""
+    ground_truth = np.array(ground_truth)
+    predictions = np.array(predictions)
+    mask = ~np.isnan(ground_truth).any(axis=1) & ~np.isnan(predictions).any(axis=1)
+    valid_ground_truth = ground_truth[mask]
+    valid_predictions = predictions[mask]
+    return np.max(np.abs(valid_ground_truth - valid_predictions))
 
 
 def main():
@@ -299,11 +324,20 @@ def main():
     plot_residuals(residuals)
     plot_positions(ground_truth_positions, measured_positions, filtered_positions)
 
-    # Calculate and log RMSE
+    # Metric calculation after simulation ends
     rmse_value = calculate_rmse(ground_truth_positions, filtered_positions)
-    print(f"Final RMSE: {rmse_value}")
-    logging.info(f"Final RMSE: {rmse_value}")
+    mae_value = calculate_mae(ground_truth_positions, filtered_positions)
+    mse_value = calculate_mse(ground_truth_positions, filtered_positions)
+    max_error_value = calculate_max_error(ground_truth_positions, filtered_positions)
 
+    # Print metrics to console
+    print(f"Final RMSE: {rmse_value}")
+    print(f"Final MAE: {mae_value}")
+    print(f"Final MSE: {mse_value}")
+    print(f"Maximum Error: {max_error_value}")
+
+    # Log the metrics for later review and analysis
+    logging.info(f"RMSE: {rmse_value}, MAE: {mae_value}, MSE: {mse_value}, Max Error: {max_error_value}")\]/
 if __name__ == "__main__":
     main()
 
