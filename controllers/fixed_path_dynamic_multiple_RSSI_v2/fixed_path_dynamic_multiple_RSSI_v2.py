@@ -346,44 +346,25 @@ def main():
         print("Measured GPS:", noisy_gps if not np.isnan(noisy_gps).all() else "Data Missing")
         print("Filtered GPS:", x[:3])
 
-        step_count += 1
-
-    residuals = calculate_residuals(measured_positions, filtered_positions)
-    plot_residuals(residuals)
-    plot_positions(ground_truth_positions, measured_positions, filtered_positions)
-
-    # Metric calculation after simulation ends
-    rmse_value = calculate_rmse(ground_truth_positions, filtered_positions)
-    mae_value = calculate_mae(ground_truth_positions, filtered_positions)
-    mse_value = calculate_mse(ground_truth_positions, filtered_positions)
-    max_error_value = calculate_max_error(ground_truth_positions, filtered_positions)
-
-    # Print metrics to console
-    print(f"Final RMSE: {rmse_value}")
-    print(f"Final MAE: {mae_value}")
-    print(f"Final MSE: {mse_value}")
-    print(f"Maximum Error: {max_error_value}")
-
-    # Log the metrics for later review and analysis
-    logging.info(f"RMSE: {rmse_value}, MAE: {mae_value}, MSE: {mse_value}, Max Error: {max_error_value}")
-
-    ground_truth = gps.getValues()  # This method might not exist; adjust based on your system
-    predicted = x[:3]  # Assuming 'x' holds the predicted state including position
-   
-    if len(ground_truth_positions) > 0 and len(filtered_positions) > 0:  # Ensure there's data to calculate metrics
-        current_rmse = calculate_rmse([ground_truth], [predicted])
-        current_mae = calculate_mae([ground_truth], [predicted])
-        current_mse = calculate_mse([ground_truth], [predicted])
-        current_max_error = calculate_max_error([ground_truth], [predicted])
+        # Optionally calculate metrics at each step (if continuous tracking is needed)
+        current_rmse = calculate_rmse(ground_truth_positions, filtered_positions)
+        current_mae = calculate_mae(ground_truth_positions, filtered_positions)
+        current_mse = calculate_mse(ground_truth_positions, filtered_positions)
+        current_max_error = calculate_max_error(ground_truth_positions, filtered_positions)
 
         rmse_values.append(current_rmse)
         mae_values.append(current_mae)
         mse_values.append(current_mse)
         max_error_values.append(current_max_error)
-        steps.append(step_count)  # Track the step count for plotting   
+        steps.append(step_count)
 
+        step_count += 1
+
+    residuals = calculate_residuals(measured_positions, filtered_positions)
+    plot_residuals(residuals)
+    plot_positions(ground_truth_positions, measured_positions, filtered_positions)      
     plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values)
+
 
 if __name__ == "__main__":
     main()
-
