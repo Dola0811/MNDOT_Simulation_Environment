@@ -101,6 +101,20 @@ def simulate_robot_movement(x, u, dt=1):
         x[2] + noisy_u[1] * dt
     ])
 
+def plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values):
+    plt.figure(figsize=(12, 8))
+    plt.plot(steps, rmse_values, label='RMSE')
+    plt.plot(steps, mae_values, label='MAE')
+    plt.plot(steps, mse_values, label='MSE')
+    plt.plot(steps, max_error_values, label='Max Error')
+    plt.xlabel('Step')
+    plt.ylabel('Error')
+    plt.title('Error Metrics Over Time')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('Error Metrics Over Time.png')
+    plt.close()
+    
 def main():
     setup_logger()
     robot = Robot()
@@ -122,9 +136,17 @@ def main():
     R = np.eye(2) * 9  # Measurement noise
     path_iterator = follow_path(wheels, path)
 
-    ground_truth = []
-    measurements = []
-    filtered_positions = []
+    ground_truth = []  # Initialize ground truth list
+    measurements = []  # Initialize measurements list
+    filtered_positions = []  # Initialize filtered positions list
+
+    # Initialize lists for error metrics
+    rmse_values = []
+    mae_values = []
+    mse_values = []
+    max_error_values = []
+    steps = []
+
     step_count = 0  # Initialize step count
 
     while robot.step(TIME_STEP) != -1:
@@ -151,30 +173,32 @@ def main():
 
         logging.info(f"Step {step_count}: True state: {true_x}, EKF state: {x}, GPS data: {gps_data}")
         print(f"Step {step_count}: Ground Truth: {ground_truth[-1]}, GPS Measurement: {measurements[-1]}, EKF Position: {filtered_positions[-1]}")
+
+        if step_count % 10 == 0:
+            if ground_truth and filtered_positions:  # Check if lists are not empty
+                ground_truth_np = np.array(ground_truth)
+                filtered_positions_np = np.array(filtered_positions)
+                ground_truth_xy = ground_truth_np[:, :2]
+                filtered_xy = filtered_positions_np
+
+                rmse_val = rmse(filtered_xy, ground_truth_xy)
+                mae_val = mae(filtered_xy, ground_truth_xy)
+                mse_val = mse(filtered_xy, ground_truth_xy)
+                max_err = max_error(filtered_xy, ground_truth_xy)
+
+                rmse_values.append(rmse_val)
+                mae_values.append(mae_val)
+                mse_values.append(mse_val)
+                max_error_values.append(max_err)
+                steps.append(step_count)
+
         step_count += 1
 
-    # Convert lists to numpy arrays for easier manipulation
-    ground_truth_np = np.array(ground_truth)
-    filtered_positions_np = np.array(filtered_positions)
-
-    # Ensure there is ground truth and filtered data to compare
-    if len(ground_truth_np) > 0 and len(filtered_positions_np) > 0:
-        # Calculate metrics
-        ground_truth_xy = ground_truth_np[:, :2]  # Assuming ground truth contains [x, y, theta]
-        filtered_xy = filtered_positions_np
-
-        error_rmse = rmse(filtered_xy, ground_truth_xy)
-        error_mae = mae(filtered_xy, ground_truth_xy)
-        error_mse = mse(filtered_xy, ground_truth_xy)
-        error_max = max_error(filtered_xy, ground_truth_xy)
-
-        # Print out the metrics
-        print(f"RMSE: {error_rmse}")
-        print(f"MAE: {error_mae}")
-        print(f"MSE: {error_mse}")
-        print(f"Max Error: {error_max}")
+    if steps:  # Plot metrics if there are any calculated
+        plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values)
 
     plot_positions(ground_truth, measurements, filtered_positions)
+
 
 def plot_positions(ground_truth, measured, filtered):
     plt.figure(figsize=(10, 8))
