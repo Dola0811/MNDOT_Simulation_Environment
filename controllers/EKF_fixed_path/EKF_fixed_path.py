@@ -102,19 +102,40 @@ def simulate_robot_movement(x, u, dt=1):
     ])
 
 def plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values):
-    plt.figure(figsize=(12, 8))
-    plt.plot(steps, rmse_values, label='RMSE')
-    plt.plot(steps, mae_values, label='MAE')
-    plt.plot(steps, mse_values, label='MSE')
-    plt.plot(steps, max_error_values, label='Max Error')
-    plt.xlabel('Step')
-    plt.ylabel('Error')
-    plt.title('Error Metrics Over Time')
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    axes = axes.flatten()
+    metrics = [rmse_values, mae_values, mse_values, max_error_values]
+    titles = ['Root Mean Square Error', 'Mean Absolute Error', 'Mean Squared Error', 'Maximum Error']
+    labels = ['RMSE', 'MAE', 'MSE', 'Max Error']
+
+    for ax, metric, title, label in zip(axes, metrics, titles, labels):
+        ax.plot(steps, metric, label=label, marker='o', linestyle='-', color='b')
+        ax.set_title(title)
+        ax.set_xlabel('Simulation Step')
+        ax.set_ylabel(label)
+        ax.grid(True)
+
+    plt.tight_layout()
+    plt.savefig('Performance_Metrics_Over_Time.png')
+    plt.close()
+
+
+def plot_positions(ground_truth, measured, filtered):
+    plt.figure(figsize=(10, 8))
+    if ground_truth:
+        plt.plot([pos[0] for pos in ground_truth], [pos[1] for pos in ground_truth], 'g-', label='Ground Truth')
+    if measured:
+        plt.plot([pos[0] for pos in measured], [pos[1] for pos in measured], 'r:', label='Measured GPS')
+    if filtered:
+        plt.plot([pos[0] for pos in filtered], [pos[1] for pos in filtered], 'b--', label='Filtered GPS')
+    plt.xlabel('X position')
+    plt.ylabel('Y position')
+    plt.title('GPS Tracking with EKF')
     plt.legend()
     plt.grid(True)
-    plt.savefig('Error Metrics Over Time.png')
-    plt.close()
-    
+    plt.savefig('GPS_Tracking_with_EKF.png')
+    plt.close()    
+
 def main():
     setup_logger()
     robot = Robot()
@@ -194,27 +215,11 @@ def main():
 
         step_count += 1
 
-    if steps:  # Plot metrics if there are any calculated
+    if steps:  
         plot_metrics(steps, rmse_values, mae_values, mse_values, max_error_values)
 
     plot_positions(ground_truth, measurements, filtered_positions)
 
-
-def plot_positions(ground_truth, measured, filtered):
-    plt.figure(figsize=(10, 8))
-    if ground_truth:
-        plt.plot([pos[0] for pos in ground_truth], [pos[1] for pos in ground_truth], 'g-', label='Ground Truth')
-    if measured:
-        plt.plot([pos[0] for pos in measured], [pos[1] for pos in measured], 'r:', label='Measured GPS')
-    if filtered:
-        plt.plot([pos[0] for pos in filtered], [pos[1] for pos in filtered], 'b--', label='Filtered GPS')
-    plt.xlabel('X position')
-    plt.ylabel('Y position')
-    plt.title('GPS Tracking with EKF')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('GPS_Tracking_with_EKF.png')
-    plt.close()
 
 if __name__ == "__main__":
     main()
